@@ -1,30 +1,35 @@
-name: Free RDP with Ngrok
+name: Free VNC with Ngrok
 on: [push]
 
 jobs:
   build:
     runs-on: windows-2022
     steps:
-      - name: Setup RDP User
+      - name: Install TightVNC Server
         run: |
-          net user riyan saputra /add
-          net localgroup administrators riyan /add
-          reg add "HKLM\System\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f
-          reg add "HKLM\SYSTEM\CurrentControlSet\Services\TermService" /v Start /t REG_DWORD /d 2 /f
-          reg add "HKLM\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v PortNumber /t REG_DWORD /d 3389 /f
-          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          netsh advfirewall firewall set rule group="Remote Desktop" new enable=Yes
+          Write-Output "🛠️ Installing TightVNC Server..."
+          Invoke-WebRequest -Uri "https://www.tightvnc.com/download/2.8.81/tightvnc-2.8.81-setup-64bit.msi" -OutFile tightvnc.msi
+          Start-Process msiexec.exe -ArgumentList "/i tightvnc.msi /quiet /norestart" -Wait
+
+      - name: Configure TightVNC Password
+        run: |
+          Write-Output "🔑 Setting TightVNC Password..."
+          $password = "saputra"
+          $registryPath = "HKLM:\Software\TightVNC\Server"
+          New-Item -Path $registryPath -Force
+          Set-ItemProperty -Path $registryPath -Name "Password" -Value ([System.Text.Encoding]::ASCII.GetBytes($password) | ForEach-Object { $_ -bxor 123 })
+          Set-ItemProperty -Path $registryPath -Name "AcceptRFBConnections" -Value 1
+          Set-ItemProperty -Path $registryPath -Name "LocalLoopback" -Value 0
+          Set-ItemProperty -Path $registryPath -Name "AlwaysShared" -Value 1
+          Set-ItemProperty -Path $registryPath -Name "AllowLoopback" -Value 1
+          Set-ItemProperty -Path $registryPath -Name "RfbPort" -Value 5900
+          Start-Process "C:\Program Files\TightVNC\tvnserver.exe"
 
       - name: Install Latest Ngrok
         run: |
           Write-Output "🛠️ Installing the latest Ngrok version..."
           Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip" -OutFile ngrok.zip
           Expand-Archive -Path ngrok.zip -DestinationPath $env:USERPROFILE
-
-      - name: Check Ngrok Version
-        run: |
-          Write-Output "🔍 Checking Ngrok version..."
-          & $env:USERPROFILE\ngrok.exe version
 
       - name: Authenticate Ngrok (Auto Token)
         run: |
@@ -33,20 +38,14 @@ jobs:
 
       - name: Start Ngrok Tunnel in Background
         run: |
-          Write-Output "🚀 Starting Ngrok Tunnel..."
-          Start-Job -ScriptBlock { & $env:USERPROFILE\ngrok.exe tcp 3389 }
-          Start-Sleep -Seconds 15  # Tunggu agar Ngrok siap
-
-      - name: Verify Ngrok is Running
-        run: |
-          Write-Output "🔍 Checking if Ngrok is running..."
-          tasklist /FI "IMAGENAME eq ngrok.exe"
+          Write-Output "🚀 Starting Ngrok Tunnel for VNC..."
+          Start-Process -NoNewWindow -FilePath "$env:USERPROFILE\ngrok.exe" -ArgumentList "tcp 5900"
+          Start-Sleep -Seconds 30  # Tunggu agar Ngrok siap
 
       - name: Get Ngrok URL
         run: |
           Write-Output "🌐 Retrieving Ngrok Public Address..."
-          Start-Sleep -Seconds 5  # Tambahkan delay sebelum mengambil URL
-          $ngrok_info = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels"
+          Start-Sleep -Seconds 10
+          $ngrok_info = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels" -ErrorAction Stop
           $ngrok_url = $ngrok_info.tunnels[0].public_url
-          Write-Output "🔗 Connect to RDP via: $ngrok_url"
-          
+          Write-Output "🔗 Connect to VNC via: $ngrok_url"

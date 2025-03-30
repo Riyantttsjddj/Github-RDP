@@ -1,78 +1,45 @@
-name: Free VNC with UltraVNC & Ngrok
-on: [push]
+- name: Install UltraVNC
+  run: |
+    Write-Output "🛠️ Installing UltraVNC Server..."
+    $installerPath = "$env:USERPROFILE\ultravnc.msi"
+    
+    # Coba download UltraVNC jika belum ada
+    if (-not (Test-Path $installerPath)) {
+        Write-Output "🔽 Downloading UltraVNC Installer..."
+        Invoke-WebRequest -Uri "https://uvnc.com/downloads/UltraVNC_1_3_81_Setup.exe" -OutFile $installerPath -UseBasicParsing
+    }
 
-jobs:
-  build:
-    runs-on: windows-2022
-    steps:
-      - name: Download UltraVNC Installer
-        run: |
-          Write-Output "🛠️ Downloading UltraVNC Installer..."
-          $url = "https://uvnc.com/downloads/ultravnc/140-ultravnc-1-3-81.html"
-          $output = "$env:USERPROFILE\ultravnc.msi"
-          Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing
-          Write-Output "✅ UltraVNC Installer Downloaded!"
+    # Install UltraVNC secara silent
+    Start-Process msiexec.exe -ArgumentList "/i $installerPath /quiet /norestart" -Wait
+    Write-Output "✅ UltraVNC Installed!"
 
-      - name: Install UltraVNC
-        run: |
-          Write-Output "🛠️ Installing UltraVNC Server..."
-          Start-Process msiexec.exe -ArgumentList "/i $env:USERPROFILE\ultravnc.msi /quiet /norestart" -Wait
-          Write-Output "✅ UltraVNC Installed!"
+- name: Verify UltraVNC Installation
+  run: |
+    Write-Output "🔎 Verifying UltraVNC Installation..."
+    $uvncPath1 = "C:\Program Files\uvnc bvba\UltraVNC\winvnc.exe"
+    $uvncPath2 = "C:\Program Files (x86)\uvnc bvba\UltraVNC\winvnc.exe"
 
-      - name: Set UltraVNC Password
-        run: |
-          Write-Output "🔑 Setting UltraVNC Password..."
-          $regPath = "HKLM:\SOFTWARE\UltraVNC"
-          $password = "saputra"
+    if (Test-Path $uvncPath1) {
+        Write-Output "✅ UltraVNC found at $uvncPath1"
+    } elseif (Test-Path $uvncPath2) {
+        Write-Output "✅ UltraVNC found at $uvncPath2"
+    } else {
+        Write-Output "❌ UltraVNC installation failed!"
+        exit 1
+    }
 
-          # Encode password menggunakan XOR
-          function Encode-Password($password) {
-              $encoded = [System.Text.Encoding]::ASCII.GetBytes($password) | ForEach-Object { $_ -bxor 202 }
-              return $encoded
-          }
+- name: Start UltraVNC Server
+  run: |
+    Write-Output "🚀 Starting UltraVNC Server..."
+    $uvncPath1 = "C:\Program Files\uvnc bvba\UltraVNC\winvnc.exe"
+    $uvncPath2 = "C:\Program Files (x86)\uvnc bvba\UltraVNC\winvnc.exe"
 
-          $encodedPassword = Encode-Password $password
-
-          # Membuat registry jika belum ada
-          if (-not (Test-Path $regPath)) {
-              New-Item -Path $regPath -Force | Out-Null
-          }
-
-          # Menyimpan password ke registry
-          Set-ItemProperty -Path $regPath -Name "passwd" -Value ([byte[]]$encodedPassword)
-          Write-Output "✅ Password Set!"
-
-      - name: Start UltraVNC Server
-        run: |
-          Write-Output "🚀 Starting UltraVNC Server..."
-          Start-Process "C:\Program Files\uvnc bvba\UltraVNC\winvnc.exe"
-          Write-Output "✅ UltraVNC Server Started!"
-
-      - name: Install Latest Ngrok
-        run: |
-          Write-Output "🛠️ Installing the latest Ngrok version..."
-          Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip" -OutFile ngrok.zip
-          Expand-Archive -Path ngrok.zip -DestinationPath $env:USERPROFILE
-          Write-Output "✅ Ngrok Installed!"
-
-      - name: Authenticate Ngrok
-        run: |
-          Write-Output "🔑 Authenticating Ngrok..."
-          & $env:USERPROFILE\ngrok.exe authtoken "${{ secrets.NGROK_AUTH_TOKEN }}"
-          Write-Output "✅ Ngrok Authenticated!"
-
-      - name: Start Ngrok Tunnel
-        run: |
-          Write-Output "🚀 Starting Ngrok Tunnel for VNC..."
-          Start-Process -NoNewWindow -FilePath "$env:USERPROFILE\ngrok.exe" -ArgumentList "tcp 5900"
-          Start-Sleep -Seconds 30
-          Write-Output "✅ Ngrok Tunnel Started!"
-
-      - name: Get Ngrok URL
-        run: |
-          Write-Output "🌐 Retrieving Ngrok Public Address..."
-          Start-Sleep -Seconds 10
-          $ngrok_info = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels" -ErrorAction Stop
-          $ngrok_url = $ngrok_info.tunnels[0].public_url
-          Write-Output "🔗 Connect to VNC via: $ngrok_url"
-          
+    if (Test-Path $uvncPath1) {
+        Start-Process -NoNewWindow -FilePath $uvncPath1
+    } elseif (Test-Path $uvncPath2) {
+        Start-Process -NoNewWindow -FilePath $uvncPath2
+    } else {
+        Write-Output "❌ UltraVNC executable not found!"
+        exit 1
+    }
+    Write-Output "✅ UltraVNC Server Started!"

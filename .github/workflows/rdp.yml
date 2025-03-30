@@ -2,12 +2,18 @@ name: Free RDP
 on: [push]
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - name: Setup RDP
         run: |
           net user riyan saputra /add
           net localgroup administrators riyan /add
           reg add "HKLM\System\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f
+          reg add "HKLM\SYSTEM\CurrentControlSet\Services\TermService" /v Start /t REG_DWORD /d 2 /f
+          reg add "HKLM\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v PortNumber /t REG_DWORD /d 3389 /f
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           netsh advfirewall firewall set rule group="Remote Desktop" new enable=Yes
+
+      - name: Get Public IP
+        run: |
+          Invoke-RestMethod -Uri "http://ipinfo.io/json"

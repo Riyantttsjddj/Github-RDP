@@ -15,11 +15,16 @@ jobs:
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           netsh advfirewall firewall set rule group="Remote Desktop" new enable=Yes
 
-      - name: Install Ngrok (Latest Version)
+      - name: Install Latest Ngrok
         run: |
-          Write-Output "🛠️ Installing Ngrok..."
-          Invoke-WebRequest -Uri "https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-windows-amd64.zip" -OutFile ngrok.zip
+          Write-Output "🛠️ Installing the latest Ngrok version..."
+          Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip" -OutFile ngrok.zip
           Expand-Archive -Path ngrok.zip -DestinationPath $env:USERPROFILE
+
+      - name: Check Ngrok Version
+        run: |
+          Write-Output "🔍 Checking Ngrok version..."
+          & $env:USERPROFILE\ngrok.exe version
 
       - name: Authenticate Ngrok (Auto Token)
         run: |

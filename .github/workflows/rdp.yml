@@ -1,5 +1,6 @@
 name: Free RDP with Ngrok
 on: [push]
+
 jobs:
   build:
     runs-on: windows-2022
@@ -29,10 +30,12 @@ jobs:
         run: |
           Write-Output "🚀 Starting Ngrok Tunnel..."
           Start-Process -NoNewWindow -FilePath "$env:USERPROFILE\ngrok.exe" -ArgumentList "tcp 3389"
+          Start-Sleep -Seconds 15  # Tunggu agar Ngrok siap
 
       - name: Get Ngrok URL
         run: |
           Write-Output "🌐 Retrieving Ngrok Public Address..."
-          $url = (Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels").tunnels[0].public_url
-          Write-Output "🔗 Connect to RDP via: $url"
-          
+          Start-Sleep -Seconds 5  # Tambahkan delay sebelum mengambil URL
+          $ngrok_info = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels"
+          $ngrok_url = $ngrok_info.tunnels[0].public_url
+          Write-Output "🔗 Connect to RDP via: $ngrok_url"

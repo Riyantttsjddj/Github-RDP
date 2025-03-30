@@ -22,10 +22,24 @@ jobs:
       - name: Set UltraVNC Password
         run: |
           Write-Output "🔑 Setting UltraVNC Password..."
+          $regPath = "HKLM:\SOFTWARE\UltraVNC"
           $password = "saputra"
-          $regPath = "HKLM:\Software\UltraVNC"
-          New-Item -Path $regPath -Force
-          Set-ItemProperty -Path $regPath -Name "passwd" -Value ([System.Text.Encoding]::ASCII.GetBytes($password) | ForEach-Object { $_ -bxor 123 })
+
+          # Encode password menggunakan XOR
+          function Encode-Password($password) {
+              $encoded = [System.Text.Encoding]::ASCII.GetBytes($password) | ForEach-Object { $_ -bxor 202 }
+              return $encoded
+          }
+
+          $encodedPassword = Encode-Password $password
+
+          # Membuat registry jika belum ada
+          if (-not (Test-Path $regPath)) {
+              New-Item -Path $regPath -Force | Out-Null
+          }
+
+          # Menyimpan password ke registry
+          Set-ItemProperty -Path $regPath -Name "passwd" -Value ([byte[]]$encodedPassword)
           Write-Output "✅ Password Set!"
 
       - name: Start UltraVNC Server

@@ -1,10 +1,10 @@
-name: Free RDP
+name: Free RDP with Ngrok
 on: [push]
 jobs:
   build:
     runs-on: windows-2022
     steps:
-      - name: Setup RDP
+      - name: Setup RDP User
         run: |
           net user riyan saputra /add
           net localgroup administrators riyan /add
@@ -14,6 +14,25 @@ jobs:
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           netsh advfirewall firewall set rule group="Remote Desktop" new enable=Yes
 
-      - name: Get Public IP
+      - name: Install Ngrok (Latest Version)
         run: |
-          Invoke-RestMethod -Uri "http://ipinfo.io/json"
+          Write-Output "🛠️ Installing Ngrok..."
+          Invoke-WebRequest -Uri "https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-windows-amd64.zip" -OutFile ngrok.zip
+          Expand-Archive -Path ngrok.zip -DestinationPath $env:USERPROFILE
+
+      - name: Authenticate Ngrok (Auto Token)
+        run: |
+          Write-Output "🔑 Authenticating Ngrok..."
+          & $env:USERPROFILE\ngrok.exe authtoken "${{ secrets.NGROK_AUTH_TOKEN }}"
+
+      - name: Start Ngrok Tunnel
+        run: |
+          Write-Output "🚀 Starting Ngrok Tunnel..."
+          Start-Process -NoNewWindow -FilePath "$env:USERPROFILE\ngrok.exe" -ArgumentList "tcp 3389"
+
+      - name: Get Ngrok URL
+        run: |
+          Write-Output "🌐 Retrieving Ngrok Public Address..."
+          $url = (Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels").tunnels[0].public_url
+          Write-Output "🔗 Connect to RDP via: $url"
+          
